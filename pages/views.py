@@ -5,6 +5,7 @@ from rest_framework import permissions
 from pages.models import Note
 from pages.serializers import NoteSerializer
 from django_filters import rest_framework as filters
+from rest_framework.filters import SearchFilter
 
 
 # filterset classes
@@ -22,8 +23,10 @@ class NoteViewSet(viewsets.ModelViewSet):
     queryset = Note.objects.all()
     serializer_class = NoteSerializer
     permission_classes = [permissions.AllowAny]
-    filter_backends = (filters.DjangoFilterBackend,)
+    filter_backends = (filters.DjangoFilterBackend, SearchFilter,)
     filterset_class = NoteFilter
+    search_fields = ['title', 'description',]
+
     # filterset_fields = ['status']
 
     # def get_queryset(self):
