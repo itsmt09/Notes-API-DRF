@@ -9,7 +9,12 @@ from django_filters import rest_framework as filters
 from rest_framework.filters import SearchFilter
 from pages.task import send_email_check
 from notes import settings
+from django.core.cache import cache
+import redis
 
+from rest_framework.response import Response
+
+redis_instance = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
 
 # filterset classes
 class NoteFilter(filters.FilterSet):
@@ -25,7 +30,7 @@ class NoteFilter(filters.FilterSet):
 class NoteViewSet(viewsets.ModelViewSet):
     queryset = Note.objects.all()
     serializer_class = NoteSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     filter_backends = (filters.DjangoFilterBackend, SearchFilter,)
     filterset_class = NoteFilter
     search_fields = ['title', 'description',]
@@ -36,6 +41,28 @@ class NoteViewSet(viewsets.ModelViewSet):
         receiver_email = "manish.tekam.9@gmail.com"
         send_email_check.delay(subject, message, settings.EMAIL_HOST_USER, receiver_email)
         return HttpResponse("Sent Email Successfully...Check your email please")
+    
+    def list(self, request):
+        title = self.request.query_params.get('title')
+
+        if title is not None:
+            cache_key = 'title' + title
+        else:
+            cache_key = 'title'
+
+        if cache_key in cache:
+            print("redis")
+            queryset = cache.get(cache_key)
+            return Response(queryset)
+        else:
+            print("db")
+            queryset = Note.objects.all()
+            if title is not None:
+                queryset = queryset.filter(title__contains = title)
+
+            serializer_class = NoteSerializer(queryset, many=True)
+            cache.set(cache_key, serializer_class.data, timeout=60*60*2)
+            return Response(serializer_class.data) 
 
 
     # filterset_fields = ['status']
